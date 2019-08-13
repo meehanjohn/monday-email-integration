@@ -4,99 +4,137 @@ import imaplib
 import base64
 import os
 import email
+import datetime
+import json
 from bs4 import BeautifulSoup
 
-def get_email():
-    email_user = creds.email
-    email_pw = creds.password
-    host = creds.server
-    port = creds.imap_port
+class incEmail:
 
-    mail = imaplib.IMAP4_SSL(host, port)
-    mail.login(email_user, email_pw)
+    def __init__(self):
+        self.user = creds.email
+        self.password = creds.password
+        self.host = creds.server
+        self.port = creds.imap_port
+        self.mail = imaplib.IMAP4_SSL(self.host, self.port)
 
-    mail.select('Inbox')
-    type, data = mail.search(None, 'ALL')
+    def get_messages(self):
+        mail = self.mail
+        mail.login(self.user, self.password)
+        mail.select('Webform_Inquiries')
 
-    convert_emails = {}
+        type, data = mail.search(None, '(UNSEEN)')
 
-    for num in data[0].split():
-        typ, data = mail.fetch(num, '(RFC822)')
-        raw_email = data[0][1]
-        raw_email_string = raw_email.decode('utf-8')
-        email_message = email.message_from_string(raw_email_string)
+        messages = []
 
-        subject = email_message['subject']
+        for num in data[0].split():
+            typ, data = mail.fetch(num, '(RFC822)')
+            raw_email = data[0][1]
+            raw_email_string = raw_email.decode('utf-8')
+            email_message = email.message_from_string(raw_email_string)
 
-        if "Response from Amuneal" in subject:
-            if email_message.is_multipart():
-                for part in email_message.walk():
-                    ctype = part.get_content_type()
-                    cdispo = str(part.get('Content-Disposition'))
+            if "Response from Amuneal" in email_message['subject']:
+                if email_message.is_multipart():
+                    for part in email_message.walk():
+                        ctype = part.get_content_type()
+                        cdispo = str(part.get('Content-Disposition'))
 
-                    if ctype == 'text/plain' and 'attachment' not in cdispo:
-                        body = part.get_payload(decode=True)
-                        break
+                        if ctype == 'text/plain' and 'attachment' not in cdispo:
+                            messages.append(part.get_payload(decode=True))
+                            break
+                else:
+                    messages.append(email_message.get_payload(decode=True))
+
+        self.messages = messages
+
+    def parse(self):
+        submissions = []
+
+        for message in self.messages:
+
+            soup = BeautifulSoup(message, 'lxml')
+            elements = soup.find_all('td',
+                {'style':"color:#555555;padding-top: 3px;padding-bottom: 20px;"})
+
+            elements = list(map(lambda x: x.get_text().strip(), elements))
+
+            if len(elements) < 5:
+                pass
+
             else:
-                body = email_message.get_payload(decode=True)
+                submission = {'cust_name': elements.pop(0),
+                              'cust_email': elements.pop(0),
+                              'cust_phone': elements.pop(0),
+                              'int_cat': elements.pop(0),
+                              'comments': elements.pop(-1),
+                              'interests': elements}
 
-            convert_emails[int(num)] = body
+            submissions.append(submission)
 
-    soup = BeautifulSoup(body, 'lxml')
+        return submissions
 
-    elements = soup.find_all('p','MsoNormal')
+class gqlQuery:
 
-    cust_phone = ""
-    cust_email = ""
-    cust_name = ""
-    int_cat = ""
-    comments = ""
+    def __init__(self):
+        self.token = creds.api_token
+        self.url = creds.monday_url
+        self.date = str(datetime.datetime.now())
 
-    for element in elements:
-        if "PHONE" in element.get_text():
-            cust_phone = list(element.next_elements)[8].get_text().strip()
-        elif "EMAIL" in element.get_text():
-            cust_email = list(element.next_elements)[8].get_text().strip()
-        elif "FULL NAME" in element.get_text():
-            cust_name = list(element.next_elements)[8].get_text().strip()
-        elif "Choose Interest Category" in element.get_text():
-            int_cat = list(element.next_elements)[8].get_text().strip()
-        elif "COMMENTS OR ADDITIONAL INFORMATION" in element.get_text():
-            comments = list(element.next_elements)[8].get_text().strip()
+    def post_query(self):
 
-    submission = {'Customer Name': cust_name,
-                  'Customer Email': cust_email,
-                  'Customer Phone': cust_phone,
-                  'Interest Category': int_cat,
-                  'Comments': comments}
+        headers = {"Authorization" : self.token}
 
-    return submission
+        request = requests.post(self.url,
+                                json=self.req_data,
+                                headers=headers)
 
+        if request.status_code == 200:
+            return request.json()
+        else:
+            raise Exception(
+            """
+            Query failed to run by returning code of {}. {}
+            """.format(request.status_code, self.req_data))
 
-def run_query():
+    def mutate(self, submission):
+        columns = {
+            "cust_name" : submission['cust_name'],
+            "cust_email" : submission['cust_email'],
+            "cust_phone" : submission['cust_phone'],
+            "int_cat" : submission['int_cat'],
+            "comments" : submission['comments']
+        }
 
-    query = "{account{id, name}}"
-
-    headers = {"Authorization" : creds.api_token}
-
-    request = requests.post(creds.monday_api_url,
-                            json={"query": query},
-                            headers=headers)
-
-    if request.status_code == 200:
-        return request.json()
-    else:
-        raise Exception(
+        query = """
+        mutation($board_id : Int!, $item_name : String!, $date : String! $columns: JSON!) {\
+                    create_item (board_id: $board_id, item_name: $item_name, column_values: $columns) {\
+                        board {id}
+        }
         """
-        Query failed to run by returning code of {}. {}
-        """.format(request.status_code, query))
 
+        variables = {
+            "board_id" : 297351387,
+            "item_name" : "New Inquiry: " + str(self.date),
+            "date" : str(self.date),
+            "columns" : json.dumps(columns)
+        }
 
+        self.req_data = {'query' : query, 'variables' : variables}
 
 def main():
-    email_contents = get_email()
+    incoming = incEmail()
+    incoming.get_messages()
+    submissions = incoming.parse()
 
-    run_query(email_contents)
+    to_monday = gqlQuery()
+
+    for submission in submissions:
+        to_monday.mutate(submission)
+        try:
+            to_monday.post_query()
+        except Exception as e:
+            print(e)
+        finally:
+            break
 
 if __name__ == '__main__':
     main()
