@@ -15,7 +15,11 @@ class incEmail:
         self.password = creds.password
         self.host = creds.server
         self.port = creds.imap_port
-        self.mail = imaplib.IMAP4_SSL(self.host, self.port)
+        try:
+            self.mail = imaplib.IMAP4_SSL(self.host, self.port)
+        except Exception as e:
+            print(e)
+            print(self.mail)
 
     def get_messages(self):
         mail = self.mail
@@ -45,32 +49,37 @@ class incEmail:
                     messages.append(email_message.get_payload(decode=True))
 
         self.messages = messages
+        return messages
 
     def parse(self):
+
+        def field_list(input, type):
+            tag = 'td'
+
+            if type == 'sub':
+                style = "color:#555555;padding-top: 3px;padding-bottom: 20px;"
+            elif type == 'head':
+                style = 'color:#333333;padding-top: 20px;padding-bottom: 3px;'
+
+            elements = list(map(lambda x: x.get_text().strip(),
+                                input.find_all(tag, style=style)))
+            return elements
+
         submissions = []
 
         for message in self.messages:
 
             soup = BeautifulSoup(message, 'lxml')
-            elements = soup.find_all('td',
-                {'style':"color:#555555;padding-top: 3px;padding-bottom: 20px;"})
+            sub_elements = field_list(soup, 'sub')
+            head_elements = field_list(soup, 'head')
 
-            elements = list(map(lambda x: x.get_text().strip(), elements))
-
-            if len(elements) < 5:
-                pass
-
-            else:
-                submission = {'cust_name': elements.pop(0),
-                              'cust_email': elements.pop(0),
-                              'cust_phone': elements.pop(0),
-                              'int_cat': elements.pop(0),
-                              'comments': elements.pop(-1),
-                              'interests': elements}
+            submission = dict(zip(head_elements,sub_elements))
 
             submissions.append(submission)
 
         return submissions
+
+
 
 class gqlQuery:
 
@@ -90,35 +99,44 @@ class gqlQuery:
         if request.status_code == 200:
             return request.json()
         else:
-            raise Exception(
-            """
-            Query failed to run by returning code of {}. {}
-            """.format(request.status_code, self.req_data))
+            raise RuntimeError("Query Failed.")
 
     def mutate(self, submission):
+
+        def key_verify(key, dict=submission):
+            if key in dict:
+                return dict[key]
+            else:
+                return None
+
         columns = {
-            "cust_name" : submission['cust_name'],
-            "cust_email" : submission['cust_email'],
-            "cust_phone" : submission['cust_phone'],
-            "int_cat" : submission['int_cat'],
-            "comments" : submission['comments']
+            "text" : key_verify('FULL NAME'),
+            "text0" : key_verify('EMAIL'),
+            "text5" : key_verify('PHONE'),
+            "text2" : key_verify('Choose Interest Category'),
+            "comments_or_additional_information7" : key_verify('COMMENTS OR ADDITIONAL INFORMATION'),
+            "text7" : key_verify('Interested in:'),
+            "date7" : str(self.date)
         }
 
         query = """
-        mutation($board_id : Int!, $item_name : String!, $date : String! $columns: JSON!) {\
-                    create_item (board_id: $board_id, item_name: $item_name, column_values: $columns) {\
-                        board {id}
-        }
-        """
+            mutation($board_id : Int!, $item_name : String!, $columns: JSON!) {
+                create_item (board_id: $board_id,
+                             item_name: $item_name,
+                             column_values: $columns) {
+                    name
+                }
+            }
+            """
 
         variables = {
             "board_id" : 297351387,
             "item_name" : "New Inquiry: " + str(self.date),
-            "date" : str(self.date),
             "columns" : json.dumps(columns)
         }
 
         self.req_data = {'query' : query, 'variables' : variables}
+        # print(self.req_data)
 
 def main():
     incoming = incEmail()
@@ -130,11 +148,10 @@ def main():
     for submission in submissions:
         to_monday.mutate(submission)
         try:
-            to_monday.post_query()
-        except Exception as e:
+            status = to_monday.post_query()
+            print(status)
+        except RuntimeError as e:
             print(e)
-        finally:
-            break
 
 if __name__ == '__main__':
     main()
