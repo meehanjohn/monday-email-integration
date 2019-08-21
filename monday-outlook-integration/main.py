@@ -9,8 +9,13 @@ import json
 from bs4 import BeautifulSoup
 
 class incEmail:
-
+    """
+    This is a class for retrieving and parsing incoming webform requests.
+    """
     def __init__(self):
+        """
+        The constructor of the incEmail class.
+        """
         self.user = creds.email
         self.password = creds.password
         self.host = creds.server
@@ -22,6 +27,14 @@ class incEmail:
             print(self.mail)
 
     def get_messages(self):
+        """
+        A function to retrieve all new webform requests.
+        Constructs a list of HTML email bodies.
+
+        Parameters: None
+
+        Returns: None
+        """
         mail = self.mail
         mail.login(self.user, self.password)
         mail.select('Webform_Inquiries')
@@ -37,6 +50,7 @@ class incEmail:
             email_message = email.message_from_string(raw_email_string)
 
             if "Response from Amuneal" in email_message['subject']:
+                """
                 if email_message.is_multipart():
                     for part in email_message.walk():
                         ctype = part.get_content_type()
@@ -47,13 +61,37 @@ class incEmail:
                             break
                 else:
                     messages.append(email_message.get_payload(decode=True))
+                """
+                messages.append(email_message.get_payload(decode=True))
 
         self.messages = messages
-        return messages
 
     def parse(self):
+        """
+        A function to extract the relevant fields from incoming messages.
+
+        Parameters: None
+
+        Returns:
+            submissions (list): All new webform inquiries converted into a list
+            of dicts, each containing the extracted fields from the original
+            webform inquiry.
+        """
 
         def field_list(input, type):
+            """
+            A function which extracts different elements of the email.
+
+            Parameters:
+                input (str): parsed email HTML
+                type (str): 'sub' or 'head', the two parts of the webform that
+                contain relevant information
+
+            Returns:
+                elements (list): A list of strings containing the extracted
+                and stripped email elements that are relevant to the webform
+                inquiry.
+            """
             tag = 'td'
 
             if type == 'sub':
@@ -82,13 +120,26 @@ class incEmail:
 
 
 class gqlQuery:
+    """
+    This is a class for posting queries and mutations to the monday.com
+    GraphQL API.
+
+    Attributes:
+        submission (dict):
+    """
 
     def __init__(self):
+        """
+        The constructor of the gqlQuery class.
+        """
         self.token = creds.api_token
         self.url = creds.monday_url
         self.date = str(datetime.datetime.now())
 
     def post_query(self):
+        """
+        TODO
+        """
 
         headers = {"Authorization" : self.token}
 
@@ -102,8 +153,12 @@ class gqlQuery:
             raise RuntimeError("Query Failed.")
 
     def mutate(self, submission):
+        """
+        TODO
+        """
 
         def key_verify(key, dict=submission):
+            """ Checks if an element of the webform is absent """
             if key in dict:
                 return dict[key]
             else:
@@ -136,9 +191,11 @@ class gqlQuery:
         }
 
         self.req_data = {'query' : query, 'variables' : variables}
-        # print(self.req_data)
 
 def main():
+    """
+    TODO
+    """
     incoming = incEmail()
     incoming.get_messages()
     submissions = incoming.parse()
