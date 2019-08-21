@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="monday-outlook-integration"
+    name="monday-outlook-integration",
     version="0.1",
     author="John Meehan",
     author_email="jmeehan@amuneal.com",
