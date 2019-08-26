@@ -19,7 +19,7 @@ class gqlQuery:
         """
         self.token = creds.api_token
         self.url = creds.monday_url
-        self.date = str(datetime.now().isoformat(' ', timespec='minutes'))
+        self.date = str(datetime.now().isoformat(' ')) #timespec='minutes'))
 
     def post_query(self):
         """
