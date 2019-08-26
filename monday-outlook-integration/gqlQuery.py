@@ -19,7 +19,7 @@ class gqlQuery:
         """
         self.token = creds.api_token
         self.url = creds.monday_url
-        self.date = str(datetime.now().isoformat(' ', timespec='minutes'))
+        self.date = str(datetime.now().isoformat(' ')) #timespec='minutes'))
 
     def post_query(self):
         """
@@ -53,7 +53,7 @@ class gqlQuery:
             "text" : key_verify('FULL NAME'),
             "text0" : key_verify('EMAIL'),
             "text5" : key_verify('PHONE'),
-            "text2" : key_verify('Choose Interest Category'),
+            "text2" : key_verify('CHOOSE INTEREST CATEGORY'),
             "comments_or_additional_information7" : key_verify('COMMENTS OR ADDITIONAL INFORMATION'),
             "text7" : key_verify('Interested in:'),
             "date7" : str(self.date)
