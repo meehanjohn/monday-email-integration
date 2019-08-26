@@ -11,4 +11,13 @@ their GraphQL API.
 
 # Use
 
+## Create `creds.py` in project folder
+email = 'youremail@example.com'
+password = 'XXXXXX'
+server = 'email.provider.server'
+account_type = '[IMAP/POP/ETC]'
+imap_port = 'XXX'
+api_token = [How to get an access token](https://monday.com/developers/v2#authentication-section-accessing-tokens)
+monday_url = 'https://api.monday.com/v2'
+
 # TODO
