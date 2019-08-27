@@ -10,7 +10,7 @@ class gqlQuery:
     GraphQL API.
 
     Attributes:
-        submission (dict):
+        submission (dict): TODO
     """
 
     def __init__(self):
@@ -19,7 +19,7 @@ class gqlQuery:
         """
         self.token = creds.api_token
         self.url = creds.monday_url
-        self.date = str(datetime.now().isoformat(' ')) #timespec='minutes'))
+        self.date = str(datetime.now().isoformat(' ',timespec='minutes')) #timespec='minutes'))
 
     def post_query(self):
         """
@@ -54,9 +54,13 @@ class gqlQuery:
             "text0" : key_verify('EMAIL'),
             "text5" : key_verify('PHONE'),
             "text2" : key_verify('CHOOSE INTEREST CATEGORY'),
-            "comments_or_additional_information7" : key_verify('COMMENTS OR ADDITIONAL INFORMATION'),
+            "text12" : key_verify('COMMENTS OR ADDITIONAL INFORMATION'),
             "text7" : key_verify('Interested in:'),
-            "date7" : str(self.date)
+            "text72" : key_verify('How did you hear about us?'),
+            "text8" : key_verify('Detail'),
+            "text1" : key_verify('FULL NAME').split(maxsplit=2)[0],
+            "text6" : key_verify('FULL NAME').split(maxsplit=2)[1],
+            "date7" : self.date
         }
 
         # https://monday.com/developers/v2#mutations-section
